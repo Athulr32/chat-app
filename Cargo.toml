@@ -1,0 +1,27 @@
+
+[package]
+name = "chatserver"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+
+[dependencies]
+axum = {features=["ws","headers"]}
+futures-util = "0.3.26"
+hmac = "0.12.1"
+jwt = "0.16.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.91"
+sha2 = "0.10.6"
+tokio = { version = "1", features = ["full"] }
+axum-macros = "0.3.5"
+secp256k1 = "0.27.0"
+hex = "0.4.3"
+dotenvy = "0.15"
+tower-http = {version = "0.4.0",features = ["cors"]}
+sqlx = {version= "0.7.1",features = ["sqlite", "runtime-tokio-native-tls"] }
+anyhow = "1.0.75"
+thiserror = "1.0.48"
+
+
