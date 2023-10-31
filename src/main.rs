@@ -1,6 +1,6 @@
 use axum::{
-    routing::{get, post, Route},
-    Extension, Router,
+    routing::{get, post},
+    Router,
 };
 use dotenvy::dotenv;
 // use encryptedapp::register::register;
@@ -9,13 +9,12 @@ use dotenvy::dotenv;
 // use encryptedapp::{login::login, updateStatus::update_status_of_message};
 use chatserver::types::AppState;
 use chatserver::{login::login, websocket::ws_handler};
-use futures_util::lock::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::broadcast;
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 // use encryptedapp::get_message::get_message;
-use sqlx::{pool, sqlite::SqlitePool};
+use sqlx::PgPool;
 
 //-> shuttle_axum::ShuttleAxum
 #[tokio::main]
@@ -33,33 +32,37 @@ async fn main() {
 
     //DB connection
     //Share the Pool Connection Across the endpoints
-    let pool = Arc::new(RwLock::new(
-        SqlitePool::connect("sqlite:encryptedapp.db").await.unwrap(),
-    ));
+    let connection_pool = PgPool::connect("postgres://swpgvslj:a3SjjSC6xL_kAHPTizMFwc16r17joewT@mouse.db.elephantsql.com/swpgvslj")
+        .await
+        .unwrap();
 
-    let app_state: Arc<AppState> = Arc::new(AppState::new(state, pool.clone()));
+    let pool = Arc::new(RwLock::new(connection_pool));
 
-    //Creating USER table
-    let pool_conn = pool.clone();
-    let conn = pool_conn.write().await;
-    let _create_user_table = sqlx::query!(
+    let app_state: Arc<AppState> = Arc::new(AppState::new(state, pool));
+
+    let pool_conn = app_state.get_db_client();
+
+    let pool_conn = pool_conn.write().await;
+
+    //1. Creating USER table
+    let _create_user_table = sqlx::query(
         "CREATE TABLE IF NOT EXISTS USERS(name TEXT UNIQUE ,publicKey TEXT PRIMARY KEY )",
     )
-    .execute(&*conn)
+    .execute(&*pool_conn)
     .await
     .unwrap();
 
-    //Creating Message Table
-    let _create_message_table = sqlx::query!(
+    //2. Creating Message Table
+    let _create_message_table = sqlx::query(
         "CREATE TABLE IF NOT EXISTS MESSAGES(messageFrom TEXT,messageTo TEXT,message TEXT,status TEXT,messageId TEXT,timestamp TEXT,FOREIGN KEY(messageFrom) REFERENCES USERS(publicKey))",
     )
-    .execute(&*conn)
+    .execute(&*pool_conn)
     .await
     .unwrap();
 
-    drop(conn);
+    drop(pool_conn);
 
-    //APP Router
+    //3. APP Router
     let app = Router::new()
         .route("/login", post(login))
         .route("/ws", get(ws_handler))
@@ -74,11 +77,9 @@ async fn main() {
     // .layer(cors)
     // .with_state(new_client.clone());
 
-    //Axum Server
+    //4. Start the Axum Server
     axum::Server::bind(&"127.0.0.1:3011".parse().unwrap())
         .serve(app.into_make_service())
         .await
         .unwrap();
-
-    println!("Hi");
 }

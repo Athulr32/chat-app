@@ -1,4 +1,4 @@
-use crate::error::{self, CustomError};
+use crate::error::CustomError;
 use crate::types::AppState;
 use axum::{extract::State, Json};
 use hmac::{Hmac, Mac};
@@ -6,14 +6,13 @@ use jwt::SignWithKey;
 use secp256k1::{ecdsa::Signature, Message, PublicKey, Secp256k1};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use sqlx::{Pool, Sqlite};
 use std::{
     collections::BTreeMap,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
-use tokio::sync::RwLock;
 
+use sqlx::Row;
 //JWT
 #[derive(Serialize)]
 pub struct JWT {
@@ -31,7 +30,7 @@ pub struct LoginCredential {
 
 impl LoginCredential {
     //Check Digital Signature
-    fn check_digital_signature(&self) -> Result<bool, anyhow::Error> {
+    fn validate_digital_signature(&self) -> Result<bool, anyhow::Error> {
         let secp256k1 = Secp256k1::new();
 
         let mut hasher = Sha256::new();
@@ -78,35 +77,37 @@ pub async fn login(
         .duration_since(UNIX_EPOCH)
         .expect("Time went backwards");
 
-    let time_in_milli =
+    let _time_in_milli =
         since_the_epoch.as_secs() * 1000 + since_the_epoch.subsec_nanos() as u64 / 1_000_000;
 
     //Check if Digital Signature is Valid
-    let check_ecdsa = data.check_digital_signature();
+    let check_ecdsa = data.validate_digital_signature();
 
     let db_client = app_state.get_db_client();
 
     let client = db_client.read().await;
-
     let public_key_in_hex = hex::encode(data.pub_key);
 
     if let Ok(res) = check_ecdsa {
         if res {
             //Check if user is already in database if not add the user
-            let check_user_exist = sqlx::query!(
-                " SELECT name,publicKey from USERS where publicKey=?",
-                public_key_in_hex
-            )
-            .fetch_one(&*client)
-            .await;
 
+            let check_user_exist =
+                sqlx::query("SELECT name,publicKey from USERS where publicKey=$1")
+                    .bind(&public_key_in_hex)
+                    .fetch_one(&*client)
+                    .await;
             if let Err(err) = check_user_exist {
-                //That Means User not Registered
-                //So Register the user and Return Ok Response
-            
+                match err {
+                    sqlx::Error::RowNotFound => {
+                        //Add User to Database
+                    }
+                    _ => return Err(CustomError::DbError),
+                }
             } else {
                 let user = check_user_exist.unwrap();
-                println!("{:?}", user);
+                let _user_name: String = user.get(0);
+                let _public_key: String = user.get(1);
             }
         } else {
             return Err(CustomError::WrongDigitalSignature);
@@ -123,35 +124,5 @@ pub async fn login(
         Err(CustomError::DbError)
     }
 
-    // if res {
-    //     println!("Digital Signature is Correct");
-    //     //Check if user Already registered
 
-    //     let unlock_client = client.read().await;
-
-    //     let check_user_exist = unlock_client
-    //         .query(
-    //             "SELECT name,publicKey from USERS where publicKey=$1",
-    //             &[&hex::encode(&data.pub_key)],
-    //         )
-    //         .await;
-
-    //     match check_user_exist {
-    //         Ok(user) => {
-    //             if !user.is_empty() {
-    //                 let user_name: &str = user[0].get(0);
-    //                 Ok(get_token(&hex::encode(&data.pub_key), user_name).await)
-    //             } else {
-    //                 println!("User not exist Please Sign In First");
-    //                 Err(Error::AuthenticationError)
-    //             }
-    //         }
-    //         Err(_) => Err(Error::SomethingElseWentWrong),
-    //     }
-    // } else {
-    //     println!("Incorrect");
-    //     Err(Error::WrongDigitalSignature)
-    // }
-
-    // Err(Error::WrongDigitalSignature)
 }
