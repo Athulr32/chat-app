@@ -13,9 +13,13 @@ pub enum CustomError {
 
     #[error("Server Error")]
     DbError,
+    #[error("User already Exist")]
+    UserAlreadyExist,
+    #[error("User name already Exist")]
+    UserNameAlreadyExist,
+    #[error("User already Exist")]
+    SomethingElseWentWrong,
 }
-
-
 
 //Impl IntoResponse for the Error
 impl IntoResponse for CustomError {
@@ -26,6 +30,9 @@ impl IntoResponse for CustomError {
             }
 
             CustomError::DbError => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
+            CustomError::UserAlreadyExist => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
+            CustomError::SomethingElseWentWrong => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
+            CustomError::UserNameAlreadyExist => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
         };
 
         let payload = json!({
@@ -35,4 +42,3 @@ impl IntoResponse for CustomError {
         (status, Json(payload)).into_response()
     }
 }
-

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::Pool;
+use surrealdb::{Surreal, engine::remote::ws::Client};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{broadcast, RwLock};
 
@@ -54,7 +54,7 @@ type State = Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>;
 #[derive(Clone)]
 pub struct AppState {
     state: State, //The state for storing websocket connection
-    db_client: Arc<RwLock<Pool<sqlx::Postgres>>>, //Db client state
+    db_client: Arc<RwLock<Surreal<Client>>>, //Db client state
 }
 
 #[derive(Deserialize, Serialize)]
@@ -157,7 +157,7 @@ impl SocketAuthUserMessage {
 impl AppState {
     pub fn new(
         state: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
-        db_client: Arc<RwLock<Pool<sqlx::Postgres>>>,
+        db_client: Arc<RwLock<Surreal<Client>>>,
     ) -> Self {
         AppState { state, db_client }
     }
@@ -166,7 +166,7 @@ impl AppState {
         return self.state.clone();
     }
 
-    pub fn get_db_client(&self) -> Arc<RwLock<Pool<sqlx::Postgres>>> {
+    pub fn get_db_client(&self) -> Arc<RwLock<Surreal<Client>>> {
         return self.db_client.clone();
     }
 }
