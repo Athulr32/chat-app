@@ -1,60 +1,96 @@
-// use std::sync::Arc;
+use std::collections::BTreeMap;
+use std::time::SystemTime;
+use std::{str::FromStr, sync::Arc};
 
-// use axum::{extract::State, Json};
-// use secp256k1::{Secp256k1, Message, ecdsa::Signature, PublicKey};
-// use serde::Serialize;
-// use sha2::Sha256;
+use crate::db::schema::Users;
+use crate::error::CustomError;
+use crate::net::HttpResponse;
+use crate::types::AppState;
+use axum::response::IntoResponse;
+use axum::{extract::State, Json};
+use hmac::{Hmac, Mac};
+use jwt::SignWithKey;
+use secp256k1::hashes::{sha256, Hash};
+use secp256k1::{ecdsa::Signature, Message, PublicKey, Secp256k1};
+use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 
+//JWT
+#[derive(Serialize)]
+pub struct JWT {
+    pub token: String,
+}
 
+//User login Details
+#[derive(Serialize, Deserialize)]
+pub struct LoginCredential {
+    signature: String,
+    message: String,
+    pub_key: String,
+}
 
+impl LoginCredential {
+    //Check Digital Signature
+    fn check_digital_signature(&self) -> bool {
+        let secp256k1 = Secp256k1::new();
 
-// use crate::{
-//     error::CustomError,
-//     types::AppState,
-// };
+        let message =
+            Message::from_hashed_data::<sha256::Hash>(&self.message.to_string().as_bytes());
 
+        let signature = Signature::from_str(&self.signature).unwrap();
 
-// //JWT
-// #[derive(Serialize)]
-// pub struct JWT {
-//     token: String,
-// }
+        let public_key = PublicKey::from_str(&self.pub_key).unwrap();
 
-// //User login Details
-// #[derive(Serialize, Deserialize)]
-// pub struct LoginCredential {
-//     signature: Vec<u8>,
-//     recid: u8,
-//     message: String,
-//     pub_key: Vec<u8>,
-// }
+        secp256k1
+            .verify_ecdsa(&message, &signature, &public_key)
+            .is_ok()
+    }
+}
 
-// impl LoginCredential {
-//     //Check Digital Signature
-//     fn validate_digital_signature(&self) -> Result<bool, anyhow::Error> {
-//         let secp256k1 = Secp256k1::new();
+pub fn get_token(pub_key: &str, name: &str) -> Json<JWT> {
+    let system_time = SystemTime::now();
+    let key: Hmac<Sha256> = Hmac::new_from_slice(b"abcd").unwrap();
+    let mut claims = BTreeMap::new();
+    claims.insert("public_key", pub_key);
+    claims.insert("user_name", name);
+    let token_str = claims.sign_with_key(&key).unwrap();
 
-//         let mut hasher = Sha256::new();
-//         hasher.update(&self.message);
-//         let result = hasher.finalize();
+    Json(JWT { token: token_str })
+}
 
-//         let message = Message::from_slice(&result)?;
-//         let signature = Signature::from_compact(&self.signature[..])?;
-//         let public_key = PublicKey::from_slice(&self.pub_key)?;
+pub async fn login(
+    State(app_state): State<Arc<AppState>>,
+    Json(data): Json<LoginCredential>,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    //Check if Digital Signature is Valid
+    let check_ecdsa = data.check_digital_signature();
 
-//         Ok(secp256k1
-//             .verify_ecdsa(&message, &signature, &public_key)
-//             .is_ok())
-//     }
-// }
+    if check_ecdsa {
+        let db_client = app_state.get_db_client();
+        let db_client = db_client.read().await;
 
+        //Check if user exist
+        let check_public_key_exist: Result<Option<Users>, surrealdb::Error> =
+            db_client.select(("users", &data.pub_key)).await;
 
-// pub async fn login(
-//     State(app_state): State<Arc<AppState>>,
-//     Json(data): Json<LoginCredential>,
-// ) -> Result<Json<JWT>, CustomError> {
-//     //Check if Digital Signature is Valid
-//     let check_ecdsa = data.validate_digital_signature();
+        if let Ok(user) = check_public_key_exist {
+            if let Some(user_details) = user {
+                let user_pub_key = user_details.public_key;
+                let user_name = user_details.name;
 
-//     let db_client = app_state.get_db_client();
-// }
+                return Ok(get_token(&user_pub_key, &user_name));
+            } else {
+                let error = CustomError::UserNotRegistered {
+                    message: String::from("User Not registered"),
+                    status: false,
+                };
+                //User Not Registered
+                return Err(error);
+            }
+        } else {
+            return Err(CustomError::DbError);
+        }
+    } else {
+        return Err(CustomError::WrongDigitalSignature);
+    }
+}

@@ -7,7 +7,15 @@ use dotenvy::dotenv;
 // use encryptedapp::user_search::user_search;
 // use encryptedapp::websocket::ws_handler;
 // use encryptedapp::{login::login, updateStatus::update_status_of_message};
-use chatserver::{types::AppState, db, auth::{register::{self, register}, self}};
+use chatserver::{
+    auth::{
+        self,
+        register::{self, register},
+    },
+    db,
+    types::AppState, websocket::ws_handler,
+};
+use futures_util::lock::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::broadcast;
 use tokio::sync::RwLock;
@@ -31,15 +39,14 @@ async fn main() {
     let state: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>> =
         Arc::new(RwLock::new(HashMap::new()));
 
-
     let pool = Arc::new(RwLock::new(db_client));
 
-    let app_state: Arc<AppState> = Arc::new(AppState::new(state, pool));
+    let app_state: Arc<RwLock<AppState>> = Arc::new(RwLock::new(AppState::new(state, pool)));
 
     //3. APP Router
     let app = Router::new()
         .merge(auth::router(app_state.clone()))
-        // .route("/ws", get(ws_handler))
+        .route("/ws", get(ws_handler))
         .layer(cors)
         .with_state(app_state.clone());
 

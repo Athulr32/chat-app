@@ -5,12 +5,13 @@ use tokio::sync::{broadcast, RwLock};
 
 //Client message Model
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
-pub struct ClientMessage {
+pub struct ClientPrivateMessage {
     uid: String,              //Id of the message
     pub message_type: String, //Type of the message send by the Client
     cipher: String,           //The encrypted message
     public_key: String,       //Public key of the recipeient
 }
+
 
 //Recipent Message Model
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
@@ -36,7 +37,7 @@ pub struct MessageStatus {
 }
 
 //User Auth Types websocket message
-#[derive(Serialize)]
+#[derive(Serialize,Deserialize,Debug)]
 pub struct ClientAuthWsMessage {
     message_type: String, //Type of the Socket message
     status: bool,         //Whether authenticated or not
@@ -49,12 +50,29 @@ pub struct SocketAuthUserMessage {
     token: String, //The jwt token sent by the client to authenticate to the websocket
 }
 
-type State = Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>;
+pub type ChatState = Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>;
 //State of the App
 #[derive(Clone)]
 pub struct AppState {
-    state: State, //The state for storing websocket connection
+    state: ChatState, //The state for storing websocket connection
     db_client: Arc<RwLock<Surreal<Client>>>, //Db client state
+}
+
+impl AppState {
+    pub fn new(
+        state: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
+        db_client: Arc<RwLock<Surreal<Client>>>,
+    ) -> Self {
+        AppState { state, db_client }
+    }
+
+    pub fn get_state(&mut self) ->  ChatState {
+        return self.state.clone();
+    }
+
+    pub fn get_db_client(&self) -> Arc<RwLock<Surreal<Client>>> {
+        return self.db_client.clone();
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -64,7 +82,7 @@ pub struct GetMessage {
     pub status: bool,
 }
 
-impl ClientMessage {
+impl ClientPrivateMessage {
     pub fn get_public_key(&self) -> String {
         self.public_key.clone()
     }
@@ -154,22 +172,7 @@ impl SocketAuthUserMessage {
     }
 }
 
-impl AppState {
-    pub fn new(
-        state: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
-        db_client: Arc<RwLock<Surreal<Client>>>,
-    ) -> Self {
-        AppState { state, db_client }
-    }
 
-    pub fn get_state(&self) -> State {
-        return self.state.clone();
-    }
-
-    pub fn get_db_client(&self) -> Arc<RwLock<Surreal<Client>>> {
-        return self.db_client.clone();
-    }
-}
 
 impl ClientAuthWsMessage {
     pub fn new(message_type: String, status: bool, message: String) -> Self {

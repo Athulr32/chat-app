@@ -6,12 +6,13 @@ use axum::{
     routing::{options, post},
     Router,
 };
+use tokio::sync::RwLock;
 
 use crate::types::AppState;
 
 pub mod register;
-
-pub fn router<S, B>(state: Arc<AppState>) -> Router<S, B>
+pub mod login;
+pub fn router<S, B>(state: Arc<RwLock<AppState>>) -> Router<S, B>
 where
     B: HttpBody + Send + 'static,
     B::Data: Send,
@@ -19,5 +20,5 @@ where
 {
     Router::new()
         .route("/signin", post(register::register))
-        .with_state(state)
+        .with_state(state.clone())
 }

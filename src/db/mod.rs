@@ -19,7 +19,4 @@ pub async fn connect_db()->Surreal<Client>{
 
   db
 
-
-
-
 }

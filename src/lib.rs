@@ -6,3 +6,5 @@ pub mod updateStatus;
 pub mod db;
 pub mod auth;
 pub mod net;
+
+pub mod websocket;

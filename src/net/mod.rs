@@ -1,7 +1,7 @@
 use axum::{http::StatusCode, response::IntoResponse};
 use serde::Serialize;
-
-enum HttpResponse {
+pub mod generic;
+pub enum HttpResponse {
     Json(String),
     Text(String),
 }
@@ -24,3 +24,4 @@ impl IntoResponse for HttpResponse {
         }
     }
 }
+

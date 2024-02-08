@@ -10,7 +10,6 @@ use thiserror::Error;
 pub enum CustomError {
     #[error("Wrong Digital Signature")]
     WrongDigitalSignature,
-
     #[error("Server Error")]
     DbError,
     #[error("User already Exist")]
@@ -19,26 +18,37 @@ pub enum CustomError {
     UserNameAlreadyExist,
     #[error("User already Exist")]
     SomethingElseWentWrong,
+    #[error("User Not Registered")]
+    UserNotRegistered { message: String, status: bool },
 }
 
 //Impl IntoResponse for the Error
 impl IntoResponse for CustomError {
     fn into_response(self) -> Response {
-        let (status, message) = match self {
+        match self {
             CustomError::WrongDigitalSignature => {
-                (StatusCode::BAD_REQUEST, "Wrong Digital Signature")
+                (StatusCode::BAD_REQUEST, "Wrong Digital Signature").into_response()
             }
 
-            CustomError::DbError => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
-            CustomError::UserAlreadyExist => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
-            CustomError::SomethingElseWentWrong => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
-            CustomError::UserNameAlreadyExist => (StatusCode::INTERNAL_SERVER_ERROR, "Database Error"),
-        };
-
-        let payload = json!({
-            "error": message,
-        });
-
-        (status, Json(payload)).into_response()
+            CustomError::DbError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database Error").into_response()
+            }
+            CustomError::UserAlreadyExist => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database Error").into_response()
+            }
+            CustomError::SomethingElseWentWrong => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database Error").into_response()
+            }
+            CustomError::UserNameAlreadyExist => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Database Error").into_response()
+            }
+            CustomError::UserNotRegistered { message, status } => {
+                let payload = json!({
+                        "message":message,
+                        "status":status
+                });
+                (StatusCode::BAD_REQUEST, Json(payload)).into_response()
+            }
+        }
     }
 }
