@@ -1,3 +1,4 @@
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use surrealdb::{Surreal, engine::remote::ws::Client};
 use std::{collections::HashMap, sync::Arc};
@@ -56,22 +57,28 @@ pub type ChatState = Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>;
 pub struct AppState {
     state: ChatState, //The state for storing websocket connection
     db_client: Arc<RwLock<Surreal<Client>>>, //Db client state
+    postgres_client:Arc<RwLock<DatabaseConnection>>
 }
 
 impl AppState {
     pub fn new(
         state: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
         db_client: Arc<RwLock<Surreal<Client>>>,
+        postgres_client:Arc<RwLock<DatabaseConnection>>
     ) -> Self {
-        AppState { state, db_client }
+        AppState { state, db_client,postgres_client }
     }
 
     pub fn get_state(&mut self) ->  ChatState {
-        return self.state.clone();
+        self.state.clone()
     }
 
     pub fn get_db_client(&self) -> Arc<RwLock<Surreal<Client>>> {
-        return self.db_client.clone();
+        self.db_client.clone()
+    }
+
+    pub fn get_postgres_client(&self)->Arc<RwLock<DatabaseConnection>>{
+        self.postgres_client.clone()
     }
 }
 
@@ -120,31 +127,31 @@ impl RecipientMessage {
     }
 
     pub fn get_message_from(&self) -> String {
-        return self.from.clone();
+         self.from.clone()
     }
 
     pub fn get_message_to(&self) -> String {
-        return self.to.clone();
+        self.to.clone()
     }
 
     pub fn get_message_uid(&self) -> String {
-        return self.uid.clone();
+         self.uid.clone()
     }
 
     pub fn get_message_type(&self) -> String {
-        return self.message_type.clone();
+         self.message_type.clone()
     }
 
     pub fn get_cipher(&self) -> String {
-        return self.cipher.clone();
+         self.cipher.clone()
     }
 
     pub fn get_message_id(&self) -> String {
-        return self.message_id.clone();
+         self.message_id.clone()
     }
 
     pub fn get_time(&self) -> String {
-        return self.time.clone();
+         self.time.clone()
     }
 }
 
@@ -214,4 +221,10 @@ enum Status {
     Sent,
     Delivered,
     Seen,
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub enum Chain{
+    Ethereum
 }

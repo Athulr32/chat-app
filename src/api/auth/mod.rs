@@ -8,7 +8,7 @@ use axum::{
 };
 use tokio::sync::RwLock;
 
-use crate::types::AppState;
+use crate::api::types::AppState;
 
 pub mod register;
 pub mod login;
@@ -20,5 +20,6 @@ where
 {
     Router::new()
         .route("/signin", post(register::register))
+        .route("/login", post(login::login))
         .with_state(state.clone())
 }

@@ -1,22 +1,23 @@
-use surrealdb::{Surreal, engine::remote::ws::{Ws, Client}, opt::auth::Root};
+use sea_orm::DatabaseConnection;
+use surrealdb::{
+    engine::remote::ws::{Client, Ws},
+    opt::auth::Root,
+    Surreal,
+};
+
+pub mod surreal;
+pub mod postgres;
 
 
-pub mod schema;
+pub async fn connect_db() -> (Surreal<Client>,DatabaseConnection) {
+    println!("Connecting to Database");
+    // Connect to the server
+    let surreal_connection = surreal::establish_db_connection().await;
+    println!("Successfully Connected to SurrealDb");
 
-pub async fn connect_db()->Surreal<Client>{
+    //Connect to Postgres
+    let postgres_connection = postgres::establish_db_connection().await;
+    println!("Successfully Connected to Postgres");
 
-  // Connect to the server
-  let db = Surreal::new::<Ws>("127.0.0.1:8000").await.unwrap();
-  // Signin as a namespace, database, or root user
-  db.signin(Root {
-      username: "root",
-      password: "root",
-  })
-  .await.unwrap();
-
-  // Select a specific namespace / database
-  db.use_ns("test").use_db("test").await.unwrap();
-
-  db
-
+    (surreal_connection,postgres_connection)
 }

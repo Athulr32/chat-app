@@ -16,15 +16,18 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use tokio::sync::{broadcast, RwLock};
-
 use hmac::{Hmac, Mac};
 use jwt::{Store, VerifyWithKey};
+use tokio::sync::{broadcast, RwLock};
+use uuid::{uuid, Timestamp, Uuid};
 
-use crate::types::{
-    AppState, ChatState, ClientAuthWsMessage, ClientPrivateMessage,
-    ClientWsMessageInvalidJsonFormat, GetMessage, MessageStatus, RecipientMessage,
-    SocketAuthUserMessage,
+use crate::{
+    api::types::{
+        AppState, ChatState, ClientAuthWsMessage, ClientPrivateMessage,
+        ClientWsMessageInvalidJsonFormat, GetMessage, MessageStatus, RecipientMessage,
+        SocketAuthUserMessage,
+    },
+    db::surreal::schema::Messages,
 };
 use sha2::Sha256;
 use std::collections::BTreeMap;
@@ -74,11 +77,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
 
         //Check for message from the client in receiever socket instance
         while let Some(Ok(socket_message)) = receiver.next().await {
-            let mut app_states = state.write().await;
-            let app_state = app_states.get_state().clone();
-            let db_state = app_states.get_db_client().clone();
             match socket_message {
                 Message::Text(msg) => {
+                    let mut app_states = state.write().await;
+                    let app_state = app_states.get_state().clone();
+                    let db_state = app_states.get_db_client().clone();
                     //Client authentication to Web Socket
                     if !auth {
                         let verify = verify_user_authentication_to_websocket(msg, &db_state).await;
@@ -94,6 +97,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                 check_if_user_is_already_connected(&public_key, &app_state).await;
 
                             if !is_user_already_connected {
+                                //Add to State
                                 let mut app_state = app_state.write().await;
                                 app_state.insert(public_key.clone(), tx.clone());
                                 auth = true;
@@ -143,7 +147,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     continue;
                                 }
 
-                                //Client Message in Correct Format
+                                //Client Message is in Correct Format
                                 let client_message = user_message.unwrap();
 
                                 //Recipient public key
@@ -153,15 +157,32 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                 let uid: String = client_message.get_uid();
 
                                 //Get the Connection HashMap
-
                                 let unlock_state = app_state.read().await;
-
                                 let time = SystemTime::now();
                                 let since_the_epoch = time
                                     .duration_since(UNIX_EPOCH)
                                     .expect("Time went backwards");
                                 let current_time = since_the_epoch.as_secs() * 1000
                                     + since_the_epoch.subsec_nanos() as u64 / 1_000_000;
+
+                                //Db Client
+                                let db_client = db_state.write().await;
+                                let id = Uuid::new_v4().to_string();
+                                let message = Messages {
+                                    from_public_key: pk.clone(),
+                                    cipher: client_message.get_cipher(),
+                                    message_id: id.clone(),
+                                    to_public_key: rec_pubkey.clone(),
+                                    uid: uid.clone(),
+                                    time: current_time,
+                                    status: crate::db::surreal::schema::UserMessageStatus::Sent,
+                                };
+
+                                let _insert_message: Result<Option<Messages>, surrealdb::Error> =
+                                    db_client
+                                        .create(("messages", id.clone()))
+                                        .content(message)
+                                        .await;
 
                                 //Construct message for the recipent and also to add in DB
                                 let message_for_receiver = RecipientMessage::build(
@@ -175,182 +196,28 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     current_time.to_string(),
                                 );
 
+
                                 //Get the socket channel of the recipient  using the public key
                                 let transmit_channel_of_recipient = unlock_state.get(&rec_pubkey);
-
-                                //Db Client
-                                let db_client = db_state;
-
                                 //If user is online
                                 //Send message to user
                                 if let Some(tr) = transmit_channel_of_recipient {
-                                    let send_message_to_recipient = tr.send(
-                                        serde_json::to_string(&message_for_receiver).unwrap(),
-                                    );
-
-                                    //Possible chance of user disconnecting at the time of sending the message
-                                    //if Error store the message in DB
-                                    if send_message_to_recipient.is_err() {
-                                        //Add to DB
-                                        // let add_to_db = add_message_to_database(
-                                        //     &db_client,
-                                        //     &message_for_receiver,
-                                        //     "Sent",
-                                        // )
-                                        // .await;
-
-                                        // if add_to_db.is_err() {
-
-                                        //     //Disconnect Websocket and send server error response to client
-                                        // }
-
-                                        //Reply to the Client that user is offline and message status is sent
-                                        let reply_to_client = tx.send(
-                                            serde_json::to_string(&MessageStatus::build(
-                                                "status".to_string(),
-                                                rec_pubkey,
-                                                uid,
-                                                "sent".to_string(),
-                                                "true".to_string(),
-                                            ))
-                                            .unwrap(),
-                                        );
-
-                                        if let Err(_) = reply_to_client {
-                                            //if sending the status to client failed
-                                            //Store the status in database
-                                        }
-                                    } else {
-                                        //If sending message to recipient is successful
-                                        //Send delivered status message to client
-                                        let reply_to_client = tx.send(
-                                            serde_json::to_string(&MessageStatus::build(
-                                                "status".to_string(),
-                                                rec_pubkey,
-                                                uid.clone(),
-                                                "delivered".to_string(),
-                                                "true".to_string(),
-                                            ))
-                                            .unwrap(),
-                                        );
-
-                                        if reply_to_client.is_err() {
-
-                                            //Add the Status to DB
-                                            //Disconnect Websocket and send server error response to client
-                                        }
-                                    }
-                                } else {
-                                    //If user is offline
-                                    //Add to database
-
-                                    // let add_to_db = add_message_to_database(
-                                    //     &db_client,
-                                    //     &message_for_receiver,
-                                    //     "Sent",
-                                    // )
-                                    // .await;
-
-                                    // if add_to_db.is_err() {}
-                                    //Send the status of message to client
-                                    let reply_to_client = tx.send(
-                                        serde_json::to_string(&MessageStatus::build(
-                                            "status".to_string(),
-                                            rec_pubkey,
-                                            uid,
-                                            "sent".to_string(),
-                                            "true".to_string(),
-                                        ))
-                                        .unwrap(),
-                                    );
-
-                                    if let Err(_) = reply_to_client {
-
-                                        //Store the status in Database
-                                    }
+                                    let _send_message_to_recipient =
+                                        tr.send(convert_to_json(&message_for_receiver));
                                 }
+                                let message_status = MessageStatus::build(
+                                    "status".to_string(),
+                                    rec_pubkey,
+                                    uid,
+                                    "sent".to_string(),
+                                    "true".to_string(),
+                                );
+                                let _reply_to_client = tx.send(convert_to_json(&message_status));
                             }
 
                             "get_message" => {
                                 let unlock_db = db_state;
                                 let db_client = unlock_db.read().await;
-
-                                // let get_all_user_messages = sqlx::query(
-                                //     "Select * from messages where messageTo=$1 AND status=$2",
-                                // )
-                                // .bind(&pk)
-                                // .bind(&"sent")
-                                // .fetch_all(&*db_client)
-                                // .await;
-
-                                // if let Err(err) = get_all_user_messages {
-                                //     // match err {
-                                //     //     sqlx::Error::RowNotFound => {
-                                //     //         tx.send(json!({"message_type":"offline_messages","message":"No data","status":false}).to_string())
-                                //     //         .unwrap();
-                                //     //         continue;
-                                //     //     }
-                                //     //     _ => {
-                                //     //         let sent_to_client = tx.send(
-                                //     //             serde_json::to_string(
-                                //     //                 r#"{"status":false,"message":"db error"}"#,
-                                //     //             )
-                                //     //             .unwrap(),
-                                //     //         );
-
-                                //     //         if sent_to_client.is_err() {
-                                //     //             break;
-                                //     //         }
-
-                                //     //         continue;
-                                //     //     }
-                                //     // }
-                                // } else {
-                                //     let messages = get_all_user_messages.unwrap();
-
-                                //     if messages.is_empty() {
-                                //         tx.send(json!({"message_type":"offline_messages","message":"No data","status":false}).to_string())
-                                //          .unwrap();
-                                //         continue;
-                                //     }
-
-                                //     let mut all_messages = Vec::new();
-
-                                //     for message in messages {
-                                //         let message_from: &str = message.get(0);
-                                //         let message_to: &str = message.get(1);
-                                //         let message_cipher: &str = message.get(2);
-                                //         let _status: &str = message.get(3);
-                                //         let message_id: &str = message.get(4);
-                                //         let time: &str = message.get(5);
-
-                                //         let build_message = RecipientMessage::build(
-                                //             "f0".to_string(),
-                                //             "offline_messages".to_string(),
-                                //             message_cipher.to_string(),
-                                //             message_from.to_string(),
-                                //             message_to.to_string(),
-                                //             message_id.to_string(),
-                                //             "wfwds".to_string(),
-                                //             time.to_string(),
-                                //         );
-
-                                //         all_messages.push(build_message);
-                                //     }
-
-                                //     let msgs = serde_json::to_string(&GetMessage {
-                                //         message_type: "offline_messages".to_string(),
-                                //         messages: all_messages,
-                                //         status: true,
-                                //     })
-                                //     .unwrap();
-
-                                //     let send_to_client = tx.send(msgs);
-
-                                //     if send_to_client.is_err() {
-                                //         break;
-                                //     }
-                                // }
                             }
                             _ => {}
                         }
@@ -413,18 +280,18 @@ pub async fn verify_user_authentication_to_websocket(
 
             Ok((public_key, name))
         } else {
-            return Err(ClientAuthWsMessage::new(
+            Err(ClientAuthWsMessage::new(
                 "authentication".to_string(),
                 false,
                 "Invalid JWT".to_string(),
-            ));
+            ))
         }
     } else {
-        return Err(ClientAuthWsMessage::new(
+        Err(ClientAuthWsMessage::new(
             String::from("authentication"),
             false,
             String::from("Invalid JSON Format"),
-        ));
+        ))
     }
 }
 

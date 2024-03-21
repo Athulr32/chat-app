@@ -1,0 +1,3 @@
+BEGIN TRANSACTION;
+Select * from messages; 
+COMMIT TRANSACTION;
