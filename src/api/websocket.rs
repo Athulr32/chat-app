@@ -168,11 +168,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                 //Db Client
                                 let db_client = db_state.write().await;
                                 let id = Uuid::new_v4().to_string();
+                                let ulid = surrealdb::sql::Id::ulid();
                                 let message = Messages {
-                                    from_public_key: pk.clone(),
+                                    from: pk.clone(),
                                     cipher: client_message.get_cipher(),
                                     message_id: id.clone(),
-                                    to_public_key: rec_pubkey.clone(),
+                                    to: rec_pubkey.clone(),
                                     uid: uid.clone(),
                                     time: current_time,
                                     status: crate::db::surreal::schema::UserMessageStatus::Sent,
@@ -180,9 +181,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
 
                                 let _insert_message: Result<Option<Messages>, surrealdb::Error> =
                                     db_client
-                                        .create(("messages", id.clone()))
+                                        .create(("messages", ulid))
                                         .content(message)
                                         .await;
+
+                                let _ = _insert_message.unwrap();
 
                                 //Construct message for the recipent and also to add in DB
                                 let message_for_receiver = RecipientMessage::build(
@@ -191,11 +194,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     client_message.get_cipher(),
                                     pk.clone(),
                                     rec_pubkey.to_string(),
-                                    "fd".to_string(),
+                                    uid.clone(),
                                     name.to_string(),
                                     current_time.to_string(),
                                 );
-
 
                                 //Get the socket channel of the recipient  using the public key
                                 let transmit_channel_of_recipient = unlock_state.get(&rec_pubkey);

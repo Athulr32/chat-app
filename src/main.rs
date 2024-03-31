@@ -5,10 +5,10 @@ use axum::{
 use ::blockchain::token_balance::fetch_eth_balance_for_given_address;
 use dotenvy::dotenv;
 use chatserver::{
-    api::auth::{
+    api::{auth::{
         self,
         register::{self, register},
-    }, api::{blockchain, types::AppState, user_search::user_search, websocket::ws_handler},db
+    }, blockchain, get_message::get_message, send_message, types::AppState, typing::typing, user_search::user_search, websocket::ws_handler}, db
 };
 use futures_util::lock::Mutex;
 use std::{collections::HashMap, sync::Arc};
@@ -45,6 +45,9 @@ async fn main() {
         .route("/ws", get(ws_handler))
         .route("/userSearch", get(user_search))
         .nest("/blockchain", blockchain::router(app_state.clone()))
+        .route("/sendMessage", post(send_message::send_message))
+        .route("/user/:userId/messages", get(get_message))
+        .route("/typing/:userId", get(typing))
         .layer(cors)
         .with_state(app_state.clone());
     // .route("/getMessage", get(get_message))

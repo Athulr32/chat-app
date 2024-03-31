@@ -1,94 +1,95 @@
-// use std::{collections::BTreeMap, sync::Arc};
+use axum::{
+    extract::{Path, Query, State},
+    http::HeaderMap,
+    response::IntoResponse,
+    Json,
+};
+use serde::Deserialize;
+use std::{collections::BTreeMap, sync::Arc};
+use tokio::sync::RwLock;
 
-// use crate::{
-//     error::Error,
-//     types::{ClientMessage, RecieverMessage},
-// };
-// use axum::{
-//     extract::State,
-//     http::HeaderMap,
-//     response::{IntoResponse, Response},
-//     Json,
-// };
-// use futures_util::TryStreamExt;
-// use serde::{Deserialize, Serialize};
-// use serde_json::json;
-// use sha2::Sha256;
-// use tokio::sync::RwLock;
-// use tokio_postgres::Client;
+use crate::{
+    api::{error::CustomError, net::HttpResponse, types::AppState},
+    db::surreal::schema::Messages,
+};
 
-// use hmac::{Hmac, Mac};
-// use jwt::VerifyWithKey;
+use super::utils::jwt::check_jwt;
 
-// #[derive(Serialize, Deserialize)]
-// struct NoMessage {
-//     status:bool
-// }
+#[derive(Deserialize, Debug)]
+pub struct QueryParams {
+    before: Option<String>,
+    after: Option<u64>,
+    limit: Option<u64>,
+}
 
-// #[axum_macros::debug_handler]
-// pub async fn get_message(
-//     State(client): State<Arc<RwLock<Client>>>,
-//     header: HeaderMap,
-// ) -> Result<Response, Error> {
-//     if header.contains_key("AUTHENTICATION") {
-//         match header["AUTHENTICATION"].to_str() {
-//             Ok(token) => {
-//                 let key: Hmac<Sha256> = Hmac::new_from_slice(b"abcd").unwrap();
+pub async fn get_message(
+    Path(userId): Path<String>,
+    query: Query<QueryParams>,
+    State(app_state): State<Arc<RwLock<AppState>>>,
+    header: HeaderMap,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    let jwt_verification = check_jwt(&header);
 
-//                 let claims: Result<BTreeMap<String, String>, jwt::Error> =
-//                     token.verify_with_key(&key);
+    if jwt_verification.is_err() {
+        return Err(CustomError::WrongDigitalSignature);
+    }
 
-//                 if let Ok(claim) = claims {
-//                     let client_key = &claim["public_key"];
+    let (sender_public_key, _name) = jwt_verification.unwrap();
 
-//                     let unlock_client = client.read().await;
+    let receiver_public_key = userId;
 
-//                     let get_all_client_messages: Result<Vec<tokio_postgres::Row>, tokio_postgres::Error> = unlock_client
-//                         .query("SELECT * from messages where messageTo=$1 AND status=$2 ", &[&client_key,&"sent"])
-//                         .await;
-//                     println!("{:?}",get_all_client_messages);
-//                     if get_all_client_messages.is_err() {
-//                         return Err(Error::DbError);
-//                     } else {
-//                         let messages = get_all_client_messages.unwrap();
+    let app_state = app_state.read().await;
+    let db_state = app_state.get_db_client();
+    let db_client = db_state.read().await;
 
-//                         if messages.is_empty() {
-//                             return Ok(Json(NoMessage{status:false}).into_response());
-//                         }
+    //Get the latest {limit} messages if after and before is empty
+    let mut limit: u64 = 50;
 
-//                         let mut foo =Vec::new();
-//                         for message in messages {
-//                             let message_from: &str = message.get(0);
-//                             let message_to: &str = message.get(1);
-//                             let message_cipher: &str = message.get(2);
-//                             let status: &str = message.get(3);
-//                             let message_id: &str = message.get(4);
-//                             let time: &str = message.get(5);
+    let query_limit = query.limit;
 
-//                             let build_message = RecieverMessage::build(
-//                                 "f0".to_string(),
-//                                 "status".to_string(),
-//                                 message_cipher.to_string(),
-//                                 message_from.to_string(),
-//                                 message_id.to_string(),
-//                                 "wfwds".to_string(),
-//                                 time.to_string(),
-//                             );
+    if let Some(l) = query_limit {
+        limit = l
+    }
 
-//                                 foo.push(build_message);
-//                         }
+    let mut message_required: Vec<Messages> = vec![];
 
-//                         return Ok(Json(foo).into_response());
-//                     }
-//                 } else {
-//                     return Err(Error::AuthenticationError);
-//                 }
-//             }
-//             Err(_) => {
-//                 return Err(Error::AuthenticationError);
-//             }
-//         }
-//     }
+    if let Some(before) = query.before.clone() {
+        println!("BEFORE = {}", before);
+        let messages = db_client
+                .query("Select * from messages WHERE (from=$senderpublickey AND to=$receiverpublickey) OR (from=$receiverpublickey AND to=$senderpublickey)  AND id > $id  ORDER BY id ASC LIMIT $limit")
+                .bind(("senderpublickey",sender_public_key.clone()))
+                .bind(("receiverpublickey",receiver_public_key.clone()))
+                .bind(("id",before))
+                .bind(("limit",limit))
+                .await;
 
-//     Err(Error::AuthenticationError)
-// }
+        if messages.is_err() {
+            return Err(CustomError::DbError);
+        }
+
+        let mut messages = messages.unwrap();
+        message_required = messages.take(0).unwrap();
+    } else {
+        //Get Message from Database
+
+        let messages = db_client
+            .query("Select * from messages WHERE (from=$senderpublickey AND to=$receiverpublickey) OR (from=$receiverpublickey AND to=$senderpublickey) ORDER BY id DESC LIMIT $limit")
+            .bind(("senderpublickey",sender_public_key))
+            .bind(("receiverpublickey",receiver_public_key))
+            .bind(("limit",limit))
+            .await;
+
+        if messages.is_err() {
+            return Err(CustomError::DbError);
+        }
+
+        let mut messages = messages.unwrap();
+        message_required = messages.take(0).unwrap();
+    }
+
+    // if query.before.is_some() || query.after.is_some() {
+    //     return Err(CustomError::SomethingElseWentWrong);
+    // }
+
+    Ok(HttpResponse::json(&message_required))
+}

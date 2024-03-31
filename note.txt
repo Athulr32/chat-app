@@ -3,3 +3,14 @@ message-type
 -> private_message
 -> group_message
 -> message_status
+-> typing
+
+
+
+route for messages  
+
+/user/:userId/messages 
+query params -> before = timestamp
+             -> after = timestamp 
+             -> limit = amount of messsages 
+             -> no query params -> latest {limit} messages

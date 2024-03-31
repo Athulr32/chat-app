@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api::types::Chain;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Debug)]
 pub enum UserMessageStatus{
     Sent,
     Received,
@@ -17,10 +17,11 @@ pub struct Users {
 
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize,Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Messages {
-    pub from_public_key: String,
-    pub to_public_key: String,
+    pub from: String,
+    pub to: String,
     pub cipher: String,
     pub message_id: String,
     pub uid: String,

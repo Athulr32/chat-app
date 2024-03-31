@@ -1,5 +1,6 @@
 use crate::api::error::CustomError;
 use crate::api::types::AppState;
+use crate::api::utils::jwt::get_token;
 use axum::response::IntoResponse;
 use axum::{extract::State, Json};
 use entity::users::Entity as Users;
@@ -18,11 +19,6 @@ use std::{str::FromStr, sync::Arc};
 use log::Log;
 
 
-//JWT
-#[derive(Serialize)]
-pub struct JWT {
-    pub token: String,
-}
 
 //User login Details
 #[derive(Serialize, Deserialize)]
@@ -48,16 +44,6 @@ impl LoginCredential {
     }
 }
 
-pub fn get_token(pub_key: &str, name: &str) -> Json<JWT> {
-    let system_time = SystemTime::now();
-    let key: Hmac<Sha256> = Hmac::new_from_slice(b"abcd").unwrap();
-    let mut claims = BTreeMap::new();
-    claims.insert("public_key", pub_key);
-    claims.insert("user_name", name);
-    let token_str = claims.sign_with_key(&key).unwrap();
-
-    Json(JWT { token: token_str })
-}
 
 pub async fn login(
     State(app_state): State<Arc<RwLock<AppState>>>,

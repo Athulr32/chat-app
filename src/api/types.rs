@@ -1,8 +1,18 @@
 use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
-use surrealdb::{Surreal, engine::remote::ws::Client};
 use std::{collections::HashMap, sync::Arc};
+use surrealdb::{engine::remote::ws::Client, Surreal};
 use tokio::sync::{broadcast, RwLock};
+
+use crate::types::enums::MessageType;
+
+//Data structure to Info the client about typing
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TypingInfo {
+   pub message_type: MessageType,
+   pub from:String
+}
+
 
 //Client message Model
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
@@ -12,7 +22,6 @@ pub struct ClientPrivateMessage {
     cipher: String,           //The encrypted message
     public_key: String,       //Public key of the recipeient
 }
-
 
 //Recipent Message Model
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
@@ -38,7 +47,7 @@ pub struct MessageStatus {
 }
 
 //User Auth Types websocket message
-#[derive(Serialize,Deserialize,Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ClientAuthWsMessage {
     message_type: String, //Type of the Socket message
     status: bool,         //Whether authenticated or not
@@ -55,21 +64,25 @@ pub type ChatState = Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>;
 //State of the App
 #[derive(Clone)]
 pub struct AppState {
-    state: ChatState, //The state for storing websocket connection
+    state: ChatState,                        //The state for storing websocket connection
     db_client: Arc<RwLock<Surreal<Client>>>, //Db client state
-    postgres_client:Arc<RwLock<DatabaseConnection>>
+    postgres_client: Arc<RwLock<DatabaseConnection>>,
 }
 
 impl AppState {
     pub fn new(
         state: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
         db_client: Arc<RwLock<Surreal<Client>>>,
-        postgres_client:Arc<RwLock<DatabaseConnection>>
+        postgres_client: Arc<RwLock<DatabaseConnection>>,
     ) -> Self {
-        AppState { state, db_client,postgres_client }
+        AppState {
+            state,
+            db_client,
+            postgres_client,
+        }
     }
 
-    pub fn get_state(&mut self) ->  ChatState {
+    pub fn get_state(&mut self) -> ChatState {
         self.state.clone()
     }
 
@@ -77,7 +90,7 @@ impl AppState {
         self.db_client.clone()
     }
 
-    pub fn get_postgres_client(&self)->Arc<RwLock<DatabaseConnection>>{
+    pub fn get_postgres_client(&self) -> Arc<RwLock<DatabaseConnection>> {
         self.postgres_client.clone()
     }
 }
@@ -127,7 +140,7 @@ impl RecipientMessage {
     }
 
     pub fn get_message_from(&self) -> String {
-         self.from.clone()
+        self.from.clone()
     }
 
     pub fn get_message_to(&self) -> String {
@@ -135,23 +148,23 @@ impl RecipientMessage {
     }
 
     pub fn get_message_uid(&self) -> String {
-         self.uid.clone()
+        self.uid.clone()
     }
 
     pub fn get_message_type(&self) -> String {
-         self.message_type.clone()
+        self.message_type.clone()
     }
 
     pub fn get_cipher(&self) -> String {
-         self.cipher.clone()
+        self.cipher.clone()
     }
 
     pub fn get_message_id(&self) -> String {
-         self.message_id.clone()
+        self.message_id.clone()
     }
 
     pub fn get_time(&self) -> String {
-         self.time.clone()
+        self.time.clone()
     }
 }
 
@@ -178,8 +191,6 @@ impl SocketAuthUserMessage {
         self.token.clone()
     }
 }
-
-
 
 impl ClientAuthWsMessage {
     pub fn new(message_type: String, status: bool, message: String) -> Self {
@@ -223,8 +234,7 @@ enum Status {
     Seen,
 }
 
-
 #[derive(Serialize, Deserialize)]
-pub enum Chain{
-    Ethereum
+pub enum Chain {
+    Ethereum,
 }

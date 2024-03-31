@@ -2,8 +2,8 @@ use axum::extract::State;
 use axum::response::IntoResponse;
 use axum::Json;
 use entity::users::Entity as UsersSample;
-use entity::usertokens::Entity as UserTokens;
 use entity::usertokenbalance::Entity as UserTokenBalance;
+use entity::usertokens::Entity as UserTokens;
 use hex::decode_to_slice;
 use hmac::{Hmac, Mac};
 use jwt::SignWithKey;
@@ -29,6 +29,7 @@ use tokio::sync::RwLock;
 use crate::api::error::CustomError;
 use crate::api::net::HttpResponse;
 use crate::api::types::AppState;
+use crate::api::utils::jwt::get_token;
 //Response to User
 #[derive(Serialize, Deserialize)]
 pub struct JWT {
@@ -74,13 +75,13 @@ pub async fn register(
             Ok(public_key) => {
                 if public_key.is_some() {
                     println!("ERROR: Private Key Already Exist");
-                    return Err::<(), CustomError>(CustomError::SomethingElseWentWrong);
+                    return Err(CustomError::SomethingElseWentWrong);
                 }
                 info!("Found Unique Public Key");
             }
             Err(e) => {
                 println!("ERROR: Database Error");
-                return Err::<(), CustomError>(CustomError::DbError);
+                return Err(CustomError::DbError);
             }
         }
 
@@ -116,26 +117,25 @@ pub async fn register(
                                     .exec(db)
                                     .await?;
 
-                                let create_token_balance =
-                                    UserTokenBalance::insert(entity::usertokenbalance::ActiveModel {
-                                        user_tokens_id:Set(insert_user_tokens.last_insert_id),
-                                        balance:Set(0),
+                                let create_token_balance = UserTokenBalance::insert(
+                                    entity::usertokenbalance::ActiveModel {
+                                        user_tokens_id: Set(insert_user_tokens.last_insert_id),
+                                        balance: Set(0),
                                         ..Default::default()
-                                    })
-                                    .exec(db)
-                                    .await?;
+                                    },
+                                )
+                                .exec(db)
+                                .await?;
 
                                 Ok(())
                             })
                         })
                         .await;
 
-                    if let Err(e) =  exec_txn{
-                        eprintln!("ERROR: {:?}",e);
+                    if let Err(e) = exec_txn {
+                        eprintln!("ERROR: {:?}", e);
                         return Err(CustomError::DbError);
                     }
-
-
                 } else {
                     println!("ERROR : User Name Alredy Exist");
                     return Err(CustomError::UserNameAlreadyExist);
@@ -143,11 +143,11 @@ pub async fn register(
             }
             Err(e) => {
                 eprintln!("{:?}", e);
-                return Err(CustomError::DbError)
+                return Err(CustomError::DbError);
             }
         }
         println!("Successfully Registered New User");
-        return Ok(());
+        return Ok(get_token(&data.pub_key, &data.name));
     }
     Err(CustomError::WrongDigitalSignature)
 }
