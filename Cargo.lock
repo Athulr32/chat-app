@@ -683,7 +683,17 @@ dependencies = [
 name = "blockchain"
 version = "0.1.0"
 dependencies = [
+ "entity",
  "ethers",
+ "ethers-contract",
+ "ethers-core",
+ "ethers-providers",
+ "hex",
+ "migration",
+ "redis",
+ "sea-orm",
+ "secp256k1",
+ "tokio",
 ]
 
 [[package]]
@@ -943,12 +953,14 @@ dependencies = [
  "blockchain",
  "dotenvy",
  "entity",
+ "ethers",
  "futures-util",
  "hex",
  "hmac",
  "jwt",
  "log",
  "migration",
+ "redis",
  "sea-orm",
  "secp256k1",
  "serde",
@@ -1083,6 +1095,20 @@ name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
+
+[[package]]
+name = "combine"
+version = "4.6.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
+dependencies = [
+ "bytes",
+ "futures-core",
+ "memchr",
+ "pin-project-lite",
+ "tokio",
+ "tokio-util",
+]
 
 [[package]]
 name = "concurrent-queue"
@@ -1786,6 +1812,7 @@ dependencies = [
  "const-hex",
  "enr",
  "ethers-core",
+ "futures-channel",
  "futures-core",
  "futures-timer",
  "futures-util",
@@ -3859,6 +3886,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "redis"
+version = "0.25.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6472825949c09872e8f2c50bde59fcefc17748b6be5c90fd67cd8b4daca73bfd"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "combine",
+ "futures-util",
+ "itoa",
+ "percent-encoding",
+ "pin-project-lite",
+ "ryu",
+ "sha1_smol",
+ "socket2 0.5.5",
+ "tokio",
+ "tokio-util",
+ "url",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4619,6 +4667,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f622567e3b4b38154fb8190bcf6b160d7a4301d70595a49195b48c116007a27"
 dependencies = [
  "bitcoin_hashes",
+ "rand",
  "secp256k1-sys",
 ]
 
@@ -4764,6 +4813,12 @@ dependencies = [
  "cpufeatures",
  "digest",
 ]
+
+[[package]]
+name = "sha1_smol"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae1a47186c03a32177042e55dbc5fd5aee900b8e0069a8d70fba96a9375cd012"
 
 [[package]]
 name = "sha2"

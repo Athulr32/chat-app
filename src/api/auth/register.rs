@@ -30,6 +30,7 @@ use crate::api::error::CustomError;
 use crate::api::net::HttpResponse;
 use crate::api::types::AppState;
 use crate::api::utils::jwt::get_token;
+use crate::db::surreal::schema::UserChats;
 //Response to User
 #[derive(Serialize, Deserialize)]
 pub struct JWT {
@@ -152,21 +153,4 @@ pub async fn register(
     Err(CustomError::WrongDigitalSignature)
 }
 
-#[cfg(test)]
-mod tests {
-    use hex::decode_to_slice;
-    use secp256k1::{ecdsa::Signature, Message, PublicKey};
-    use secp256k1::{Keypair, Secp256k1, SecretKey};
-    use std::str::FromStr;
-    #[test]
-    fn check_ds() {
-        // let mut secp = Secp256k1::new();
-        // let secret_key= SecretKey::from_str("0000000000000000000000000000000000000000000000000000000000000001").unwrap();
-        // let public_key = secret_key.public_key(&secp);
-        // let message = Message::from_digest_slice(&[0xab; 32]).expect("32 bytes");
-        // let sig = secp.sign_ecdsa(&message, &secret_key);
-        // println!("{:?}",sig);
-        let signature = Signature::from_str("05964d101650a11144701047e1dfba172b98910a821ec645f80aa8a6e20dc71b8b654c4cae180e0418eb23a043c47179aa2da1a8c6296945012a2bda7ca726ab").unwrap();
-        assert_eq!(1, 2);
-    }
-}
+

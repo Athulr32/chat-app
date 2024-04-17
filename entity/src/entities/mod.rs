@@ -2,6 +2,8 @@
 
 pub mod prelude;
 
+pub mod nativetokenbalance;
+pub mod post;
 pub mod users;
 pub mod usertokenbalance;
 pub mod usertokens;

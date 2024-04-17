@@ -9,11 +9,18 @@ impl MigrationTrait for Migration {
         // Replace the sample below with your own migration scripts
         let db = manager.get_connection();
         db.execute_unprepared(
-            "ALTER TABLE usertokens DROP CONSTRAINT usertokens_token_address_key;",
+            "
+            ALTER TABLE nativetokenbalance
+            ALTER COLUMN public_key SET NOT NULL,
+            ALTER COLUMN token_name SET NOT NULL,
+            ALTER COLUMN token_balance SET NOT NULL;
+            
+            ALTER TABLE nativetokenbalance
+            ADD CONSTRAINT unique_user_token_name UNIQUE(public_key, token_name);
+            ",
         )
         .await?;
-        db.execute_unprepared("ALTER TABLE usertokens DROP CONSTRAINT usertokens_token_name_key;")
-            .await?;
+
         Ok(())
     }
 

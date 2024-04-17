@@ -21,13 +21,10 @@ use jwt::{Store, VerifyWithKey};
 use tokio::sync::{broadcast, RwLock};
 use uuid::{uuid, Timestamp, Uuid};
 
-use crate::{
-    api::types::{
-        AppState, ChatState, ClientAuthWsMessage, ClientPrivateMessage,
-        ClientWsMessageInvalidJsonFormat, GetMessage, MessageStatus, RecipientMessage,
-        SocketAuthUserMessage,
-    },
-    db::surreal::schema::Messages,
+use crate::api::types::{
+    AppState, ChatState, ClientAuthWsMessage, ClientPrivateMessage,
+    ClientWsMessageInvalidJsonFormat, GetMessage, MessageStatus, RecipientMessage,
+    SocketAuthUserMessage,
 };
 use sha2::Sha256;
 use std::collections::BTreeMap;
@@ -58,6 +55,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
     let receiver_handler = tokio::spawn(async move {
         //Wait for message from the channel
         while let Ok(msg) = rx.recv().await {
+            println!("Receieved message to send to client {:?}",msg);
             //If message then send that message to user using the sender socket instance
             let send_to_client = sender.send(Message::Text(msg)).await;
 
@@ -169,7 +167,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                 let db_client = db_state.write().await;
                                 let id = Uuid::new_v4().to_string();
                                 let ulid = surrealdb::sql::Id::ulid();
-                                let message = Messages {
+                                let message = crate::types::message::Message {
                                     from: pk.clone(),
                                     cipher: client_message.get_cipher(),
                                     message_id: id.clone(),
@@ -179,11 +177,13 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     status: crate::db::surreal::schema::UserMessageStatus::Sent,
                                 };
 
-                                let _insert_message: Result<Option<Messages>, surrealdb::Error> =
-                                    db_client
-                                        .create(("messages", ulid))
-                                        .content(message)
-                                        .await;
+                                let _insert_message: Result<
+                                    Option<crate::db::surreal::schema::Message>,
+                                    surrealdb::Error,
+                                > = db_client
+                                    .create(("messages", id.clone()))
+                                    .content(message)
+                                    .await;
 
                                 let _ = _insert_message.unwrap();
 
@@ -196,7 +196,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     rec_pubkey.to_string(),
                                     uid.clone(),
                                     name.to_string(),
-                                    current_time.to_string(),
+                                    current_time,
                                 );
 
                                 //Get the socket channel of the recipient  using the public key

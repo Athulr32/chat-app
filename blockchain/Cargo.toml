@@ -6,4 +6,18 @@ edition = "2021"
 publish = false
 
 [dependencies]
+ethers-core = {version ="2.0.14"}
 ethers = { version = "2.0.14", features = ["legacy"] }
+ethers-contract = { version = "2.0.14" }
+ethers-providers = { version = "2.0.14" }
+entity = { path = "../entity" }
+migration = { path = "../migration" }
+secp256k1 = { version = "0.28.1", features = ["hashes","rand"] }
+sea-orm = { version = "0.12", features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+] }
+hex = "0.4.3"
+tokio = { version = "1", features = ["full"] }
+redis = {version="0.25.3",features = ["aio","tokio-comp"]}

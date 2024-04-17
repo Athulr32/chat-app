@@ -33,3 +33,5 @@ entity = { path = "entity" }
 migration = { path = "migration" } 
 blockchain = { path = "blockchain" } 
 log = "0.4.21"
+ethers = "2.0.14"
+redis = {version="0.25.3",features = ["aio","tokio-comp"]}

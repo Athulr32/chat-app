@@ -9,8 +9,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use crate::{
-    api::{error::CustomError, net::HttpResponse, types::AppState},
-    db::surreal::schema::Messages,
+    api::{error::CustomError, net::HttpResponse, types::AppState}, db::surreal::schema::Message
 };
 
 use super::utils::jwt::check_jwt;
@@ -51,10 +50,9 @@ pub async fn get_message(
         limit = l
     }
 
-    let mut message_required: Vec<Messages> = vec![];
+    let mut message_required: Vec<Message> = vec![];
 
     if let Some(before) = query.before.clone() {
-        println!("BEFORE = {}", before);
         let messages = db_client
                 .query("Select * from messages WHERE (from=$senderpublickey AND to=$receiverpublickey) OR (from=$receiverpublickey AND to=$senderpublickey)  AND id > $id  ORDER BY id ASC LIMIT $limit")
                 .bind(("senderpublickey",sender_public_key.clone()))
@@ -69,15 +67,17 @@ pub async fn get_message(
 
         let mut messages = messages.unwrap();
         message_required = messages.take(0).unwrap();
-    } else {
-        //Get Message from Database
-
+    } 
+    else if let Some(before) = query.after.clone() {
         let messages = db_client
-            .query("Select * from messages WHERE (from=$senderpublickey AND to=$receiverpublickey) OR (from=$receiverpublickey AND to=$senderpublickey) ORDER BY id DESC LIMIT $limit")
-            .bind(("senderpublickey",sender_public_key))
-            .bind(("receiverpublickey",receiver_public_key))
-            .bind(("limit",limit))
-            .await;
+                .query("Select * from messages WHERE (from=$senderpublickey AND to=$receiverpublickey) OR (from=$receiverpublickey AND to=$senderpublickey)  AND id < $id  ORDER BY id ASC LIMIT $limit")
+                .bind(("senderpublickey",sender_public_key.clone()))
+                .bind(("receiverpublickey",receiver_public_key.clone()))
+                .bind(("id",before))
+                .bind(("limit",limit))
+                .await;
+
+
 
         if messages.is_err() {
             return Err(CustomError::DbError);
@@ -85,11 +85,29 @@ pub async fn get_message(
 
         let mut messages = messages.unwrap();
         message_required = messages.take(0).unwrap();
+    } 
+    else {
+        //Get Message from Database
+        let messages = db_client
+            .query("Select * from messages WHERE (from=$senderpublickey AND to=$receiverpublickey) OR (from=$receiverpublickey AND to=$senderpublickey) ORDER BY id DESC LIMIT $limit")
+            .bind(("senderpublickey",sender_public_key.clone()))
+            .bind(("receiverpublickey",receiver_public_key.clone()))
+            .bind(("limit",limit))
+            .await;
+
+        if messages.is_err() {
+            return Err(CustomError::DbError);
+        }
+
+        println!("Sender key {:?}",sender_public_key);
+        println!("Receiver key {:?}",receiver_public_key);
+
+
+        let mut messages = messages.unwrap();
+        // println!("MESSAGES {:?}",messages);
+        message_required = messages.take(0).unwrap();
     }
 
-    // if query.before.is_some() || query.after.is_some() {
-    //     return Err(CustomError::SomethingElseWentWrong);
-    // }
 
     Ok(HttpResponse::json(&message_required))
 }

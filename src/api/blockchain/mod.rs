@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{body::HttpBody, routing::post, Router};
+use axum::{body::HttpBody, routing::{get, post}, Router};
 use tokio::sync::RwLock;
 
 use crate::api::types::AppState;
@@ -18,6 +18,6 @@ where
     Router::new()
         .route("/send_transaction", post(transaction::send_transaction))
         .route("/send_transaction_hash", post(transaction::get_transation_hash_from_client))
-        .route("/set_token_for_tracking", post(token::set_token_for_tracking))
+        .route("/native_token_balance", get(token::get_native_token_balance))
         .with_state(state.clone())
 }

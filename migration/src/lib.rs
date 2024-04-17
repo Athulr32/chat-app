@@ -4,6 +4,8 @@ mod m20220101_000001_create_table;
 mod m20240312_144152_user_table_constraint;
 mod m20240316_053714_remove_constraint;
 mod m20240316_094538_remove_constraints;
+mod m20240413_131231_add_native_token_balance_table;
+mod m20240417_141245_add_contraint_to_native_token_table;
 
 pub struct Migrator;
 
@@ -15,6 +17,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20240312_144152_user_table_constraint::Migration),
             Box::new(m20240316_053714_remove_constraint::Migration),
             Box::new(m20240316_094538_remove_constraints::Migration),
+            Box::new(m20240413_131231_add_native_token_balance_table::Migration),
+            Box::new(m20240417_141245_add_contraint_to_native_token_table::Migration),
         ]
     }
 }

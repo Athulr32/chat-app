@@ -16,6 +16,7 @@ pub struct TypingInfo {
 
 //Client message Model
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ClientPrivateMessage {
     uid: String,              //Id of the message
     pub message_type: String, //Type of the message send by the Client
@@ -33,7 +34,7 @@ pub struct RecipientMessage {
     to: String,
     message_id: String, //Message id
     name: String,       //Name of the sender (From blockchain naming)
-    time: String,       // Time at which the client sent the message
+    time: u64,       // Time at which the client sent the message
 }
 
 //Status of each Message sent by the client
@@ -125,7 +126,7 @@ impl RecipientMessage {
         to: String,
         message_id: String,
         name: String,
-        time: String,
+        time: u64,
     ) -> Self {
         RecipientMessage {
             uid,
@@ -163,8 +164,8 @@ impl RecipientMessage {
         self.message_id.clone()
     }
 
-    pub fn get_time(&self) -> String {
-        self.time.clone()
+    pub fn get_time(&self) -> u64 {
+        self.time
     }
 }
 

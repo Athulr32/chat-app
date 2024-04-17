@@ -1,15 +1,25 @@
+use ::blockchain::token_balance::fetch_eth_balance;
 use axum::{
     routing::{get, post},
     Router,
 };
-use ::blockchain::token_balance::fetch_eth_balance_for_given_address;
-use dotenvy::dotenv;
 use chatserver::{
-    api::{auth::{
-        self,
-        register::{self, register},
-    }, blockchain, get_message::get_message, send_message, types::AppState, typing::typing, user_search::user_search, websocket::ws_handler}, db
+    api::{
+        auth::{
+            self,
+            register::{self, register},
+        },
+        blockchain,
+        get_message::get_message,
+        get_message_on_bootstrap, send_message,
+        types::AppState,
+        typing::typing,
+        user_search::user_search,
+        websocket::ws_handler,
+    },
+    db,
 };
+use dotenvy::dotenv;
 use futures_util::lock::Mutex;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::broadcast;
@@ -21,9 +31,10 @@ use tower_http::cors::{Any, CorsLayer};
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-        fetch_eth_balance_for_given_address(String::from("vitalik.eth")).await;
-    let (surreal_connection,postgres_connection) = db::connect_db().await;
 
+    let (surreal_connection, postgres_connection, redis) = db::connect_db().await;
+
+    fetch_eth_balance(postgres_connection.clone(), redis.clone()).await;
     //CORS
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -37,7 +48,11 @@ async fn main() {
     let surreal_db_connection = Arc::new(RwLock::new(surreal_connection));
     let postgres_db_connection = Arc::new(RwLock::new(postgres_connection));
 
-    let app_state: Arc<RwLock<AppState>> = Arc::new(RwLock::new(AppState::new(state, surreal_db_connection,postgres_db_connection)));
+    let app_state: Arc<RwLock<AppState>> = Arc::new(RwLock::new(AppState::new(
+        state,
+        surreal_db_connection,
+        postgres_db_connection,
+    )));
 
     //3. APP Router
     let app = Router::new()
@@ -47,6 +62,10 @@ async fn main() {
         .nest("/blockchain", blockchain::router(app_state.clone()))
         .route("/sendMessage", post(send_message::send_message))
         .route("/user/:userId/messages", get(get_message))
+        .route(
+            "/messages/getMessagesOnBootstrap",
+            get(get_message_on_bootstrap::get_message_on_boostrap),
+        )
         .route("/typing/:userId", get(typing))
         .layer(cors)
         .with_state(app_state.clone());
