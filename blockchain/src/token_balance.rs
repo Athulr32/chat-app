@@ -21,7 +21,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 pub async fn fetch_eth_balance(
     dbClient: DatabaseConnection,
-    redisClient: redis::aio::MultiplexedConnection,
+    mut redisClient: redis::aio::MultiplexedConnection,
 ) {
     // connect to the network
     let client = Provider::<Http>::try_from("https://eth.drpc.org").unwrap();
@@ -39,7 +39,8 @@ pub async fn fetch_eth_balance(
         }
     }
     let users = users.unwrap();
-    //Update the Balance every 1 minute in a loop and another thread
+
+    //Update the Balance every 1 minute in a loop and in another thread
     tokio::task::spawn(async move {
         loop {
             println!("Finding Balance");
@@ -47,8 +48,48 @@ pub async fn fetch_eth_balance(
             for i in 0..balances.len() {
                 let user = &users[i];
                 let balance = balances[i].as_u64() as i64;
-                println!("Updating Db");
-                dbClient.query_one(Statement::from_sql_and_values(DbBackend::Postgres, r#"INSERT INTO NativeTokenBalance VALUES (DEFAULT,$1, $2,$3) ON CONFLICT(public_key,token_name) DO UPDATE SET token_balance = $4;"#,vec![user.public_key.to_string().into(),String::from("ETH").into(),balance.into(),balance.into()])).await.unwrap();
+
+                let balance_from_cache = redisClient
+                    .get::<String, i64>(user.public_key.to_string())
+                    .await;
+
+                if let Ok(cache_balance) = balance_from_cache {
+                    if balance == cache_balance {
+  
+                        continue;
+                    } else {
+                        //Update Cache And Database
+
+                        //Don't Care on Failure
+                        println!("Updating Cache");
+                        let insert_into_cache = redisClient
+                            .set::<String, i64, i64>(user.public_key.to_string(), balance)
+                            .await;
+
+                        if insert_into_cache.is_err() {
+                            println!("Cache Updation Failed");
+                        }
+                        println!("Updating Db");
+                        let db_update =   dbClient.query_one(Statement::from_sql_and_values(DbBackend::Postgres, r#"INSERT INTO NativeTokenBalance VALUES (DEFAULT,$1, $2,$3) ON CONFLICT(public_key,token_name) DO UPDATE SET token_balance = $4;"#,vec![user.public_key.to_string().into(),String::from("ETH").into(),balance.into(),balance.into()])).await;
+                        if db_update.is_err() {
+                            println!("Db Updation Failed");
+                        }
+                    }
+                } else {
+                    println!("Updating Cache");
+                    let insert_into_cache = redisClient
+                        .set::<String, String, String>(user.public_key.to_string(), balance.to_string())
+                        .await;
+
+                    if let Err(e)  = insert_into_cache{
+                        panic!("Cache Updation Failed {:?}",e);
+                    }
+                    println!("Updating Db");
+                    let db_update =   dbClient.query_one(Statement::from_sql_and_values(DbBackend::Postgres, r#"INSERT INTO NativeTokenBalance VALUES (DEFAULT,$1, $2,$3) ON CONFLICT(public_key,token_name) DO UPDATE SET token_balance = $4;"#,vec![user.public_key.to_string().into(),String::from("ETH").into(),balance.into(),balance.into()])).await;
+                    if db_update.is_err() {
+                        println!("Db Updation Failed");
+                    }
+                }
             }
             println!("Sleeping");
             sleep(Duration::from_secs(10)).await;

@@ -13,3 +13,14 @@ pub struct Message {
     pub time: u64,
     pub status:UserMessageStatus
 }
+
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SocialMediaMessage {
+    pub from: String,
+    pub cipher: String,
+    pub message_id: String,
+    pub uid: String,
+    pub time: u64,
+}

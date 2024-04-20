@@ -42,3 +42,16 @@ pub struct UserTokenBalance {
 pub struct UserChats {
     pub chats: Vec<String>,
 }
+
+
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SocialMediaMessage {
+    pub id: Thing,
+    pub from: String,
+    pub cipher: String,
+    pub message_id: String,
+    pub uid: String,
+    pub time: u64,
+}

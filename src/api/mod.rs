@@ -11,3 +11,4 @@ pub mod blockchain;
 pub mod utils;
 pub mod get_message_on_bootstrap;
 pub mod typing;
+pub mod send_message_public;

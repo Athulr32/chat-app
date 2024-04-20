@@ -25,7 +25,7 @@ pub async fn connect_db() -> (
 
     //Connect to Postgres
     let redis = redis_db::establish_db_connection().await;
-    println!("Successfully Connected to Postgres");
+    println!("Successfully Connected to Redis");
 
     (surreal_connection, postgres_connection, redis)
 }
