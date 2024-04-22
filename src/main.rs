@@ -47,11 +47,12 @@ async fn main() {
 
     let surreal_db_connection = Arc::new(RwLock::new(surreal_connection));
     let postgres_db_connection = Arc::new(RwLock::new(postgres_connection));
-
+    let redis_db_connection = Arc::new(RwLock::new(redis.clone()));
     let app_state: Arc<RwLock<AppState>> = Arc::new(RwLock::new(AppState::new(
         state,
         surreal_db_connection,
         postgres_db_connection,
+        redis_db_connection,
     )));
 
     //3. APP Router

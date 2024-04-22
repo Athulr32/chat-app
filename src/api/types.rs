@@ -9,10 +9,9 @@ use crate::types::enums::MessageType;
 //Data structure to Info the client about typing
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TypingInfo {
-   pub message_type: MessageType,
-   pub from:String
+    pub message_type: MessageType,
+    pub from: String,
 }
-
 
 //Client message Model
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
@@ -34,7 +33,7 @@ pub struct RecipientMessage {
     to: String,
     message_id: String, //Message id
     name: String,       //Name of the sender (From blockchain naming)
-    time: u64,       // Time at which the client sent the message
+    time: u64,          // Time at which the client sent the message
 }
 
 //Status of each Message sent by the client
@@ -67,7 +66,8 @@ pub type ChatState = Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>;
 pub struct AppState {
     state: ChatState,                        //The state for storing websocket connection
     db_client: Arc<RwLock<Surreal<Client>>>, //Db client state
-    postgres_client: Arc<RwLock<DatabaseConnection>>,
+    postgres_client: Arc<RwLock<DatabaseConnection>>, // Postgres State
+    redis_client: Arc<RwLock<redis::aio::MultiplexedConnection>>,
 }
 
 impl AppState {
@@ -75,11 +75,13 @@ impl AppState {
         state: Arc<RwLock<HashMap<String, broadcast::Sender<String>>>>,
         db_client: Arc<RwLock<Surreal<Client>>>,
         postgres_client: Arc<RwLock<DatabaseConnection>>,
+        redis_client: Arc<RwLock<redis::aio::MultiplexedConnection>>,
     ) -> Self {
         AppState {
             state,
             db_client,
             postgres_client,
+            redis_client,
         }
     }
 
@@ -93,6 +95,10 @@ impl AppState {
 
     pub fn get_postgres_client(&self) -> Arc<RwLock<DatabaseConnection>> {
         self.postgres_client.clone()
+    }
+
+    pub fn get_redis_client(&self) -> Arc<RwLock<redis::aio::MultiplexedConnection>> {
+        self.redis_client.clone()
     }
 }
 

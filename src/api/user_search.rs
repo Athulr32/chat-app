@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::{
-    api::error::CustomError, api::net::HttpResponse, api::types::AppState,
-    db::surreal::schema::Users,
+    api::{error::CustomError, net::HttpResponse, types::AppState}, types::user::User,
+
 };
 
 use super::utils::jwt::check_jwt;
@@ -25,7 +25,7 @@ pub async fn user_search(
     let get_db_client = read_app_state.get_db_client();
     let get_db_client = get_db_client.read().await;
 
-    let get_users: Result<Vec<Users>, surrealdb::Error> = get_db_client.select("users").await;
+    let get_users: Result<Vec<User>, surrealdb::Error> = get_db_client.select("users").await;
 
     if get_users.is_err() {
         return Err(CustomError::DbError);

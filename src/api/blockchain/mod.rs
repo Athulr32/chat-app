@@ -9,6 +9,7 @@ use crate::api::types::AppState;
 
 pub mod transaction;
 pub mod token;
+
 pub fn router<S, B>(state: Arc<RwLock<AppState>>) -> Router<S, B>
 where
     B: HttpBody + Send + 'static,
