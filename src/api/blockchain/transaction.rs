@@ -32,7 +32,7 @@ pub async fn send_transaction(
             let tx_hash = client.send_raw_transaction(Bytes::from(bytes)).await;
 
             if let Ok(hash) = tx_hash {
-                
+                //Save the Transaction Details to SurrealDb Messages
                 return Ok(());
             } else {
                 return Err(CustomError::SomethingElseWentWrong);
