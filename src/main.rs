@@ -34,7 +34,7 @@ async fn main() {
 
     let (surreal_connection, postgres_connection, redis) = db::connect_db().await;
 
-    fetch_eth_balance(postgres_connection.clone(), redis.clone()).await;
+    // fetch_eth_balance(postgres_connection.clone(), redis.clone()).await;
     //CORS
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -59,7 +59,7 @@ async fn main() {
     let app = Router::new()
         .merge(auth::router(app_state.clone()))
         .route("/ws", get(ws_handler))
-        .route("/userSearch", get(user_search))
+        .route("/userSearch", post(user_search))
         .nest("/blockchain", blockchain::router(app_state.clone()))
         .route("/sendMessage", post(send_message::send_message))
         .route("/user/:userId/messages", get(get_message))
