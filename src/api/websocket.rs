@@ -55,7 +55,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
     let receiver_handler = tokio::spawn(async move {
         //Wait for message from the channel
         while let Ok(msg) = rx.recv().await {
-            println!("Receieved message to send to client {:?}",msg);
+            println!("Receieved message to send to client {:?}", msg);
             //If message then send that message to user using the sender socket instance
             let send_to_client = sender.send(Message::Text(msg)).await;
 
@@ -149,10 +149,10 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                 let client_message = user_message.unwrap();
 
                                 //Recipient public key
-                                let rec_pubkey: String = client_message.get_public_key();
+                                let rec_pubkey: String = client_message.get_to_public_key();
 
                                 //UID of the message sent by the sender
-                                let uid: String = client_message.get_uid();
+                                let message_id: String = client_message.get_mesage_id();
 
                                 //Get the Connection HashMap
                                 let unlock_state = app_state.read().await;
@@ -165,19 +165,20 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
 
                                 //Db Client
                                 let db_client = db_state.write().await;
-                                let id = Uuid::new_v4().to_string();
-                                let ulid = surrealdb::sql::Id::ulid();
+
                                 let message = crate::types::message::Message {
                                     from: pk.clone(),
                                     cipher: client_message.get_cipher(),
-                                    message_id: id.clone(),
+                                    message_id: message_id,
                                     to: rec_pubkey.clone(),
-                                    uid: uid.clone(),
                                     time: current_time,
                                     status: crate::db::surreal::schema::UserMessageStatus::Sent,
+                                    message_type: String::from("private_message"),
+                                    name: String::from("Name"), //TODO: TO be Chnaged,
                                 };
 
-                                let _insert_message: Result<
+                                let id = Uuid::new_v4().to_string();
+                                let insert_message: Result<
                                     Option<crate::db::surreal::schema::Message>,
                                     surrealdb::Error,
                                 > = db_client
@@ -185,22 +186,27 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     .content(message)
                                     .await;
 
-                                let _ = _insert_message.unwrap();
-
-                                //Construct message for the recipent and also to add in DB
-                                let message_for_receiver = RecipientMessage::build(
-                                    client_message.get_uid(),
-                                    client_message.message_type.clone(),
-                                    client_message.get_cipher(),
-                                    pk.clone(),
-                                    rec_pubkey.to_string(),
-                                    uid.clone(),
-                                    name.to_string(),
-                                    current_time,
-                                );
-
                                 //Get the socket channel of the recipient  using the public key
                                 let transmit_channel_of_recipient = unlock_state.get(&rec_pubkey);
+
+                                if insert_message.is_err() {
+                                    //TODO: To be Fixes
+                                    continue;
+                                }
+                                let message_for_receiver = insert_message.unwrap().unwrap();
+
+                                // //Construct message for the recipent and also to add in DB
+                                // let message_for_receiver = RecipientMessage::build(
+                                //     client_message.get_uid(),
+                                //     client_message.message_type.clone(),
+                                //     client_message.get_cipher(),
+                                //     pk.clone(),
+                                //     rec_pubkey.to_string(),
+                                //     uid.clone(),
+                                //     name.to_string(),
+                                //     current_time,
+                                // );
+
                                 //If user is online
                                 //Send message to user
                                 if let Some(tr) = transmit_channel_of_recipient {
@@ -210,7 +216,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                 let message_status = MessageStatus::build(
                                     "status".to_string(),
                                     rec_pubkey,
-                                    uid,
+                                    id,
                                     "sent".to_string(),
                                     "true".to_string(),
                                 );

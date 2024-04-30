@@ -30,14 +30,7 @@ pub async fn send_message(
     let db_state = states.clone().get_db_client().clone();
     let state = state.read().await;
     let db_client = db_state.write().await;
-    let receiver_public_key = message.get_public_key();
-
-    println!(
-        "RECEIVED MESSAGE TO SEND TO {receiver_key} FROM {sender_key}",
-        receiver_key = receiver_public_key,
-        sender_key = sender_public_key
-    );
-
+    let receiver_public_key = message.get_to_public_key();
     //Store message in db
     let id = Uuid::new_v4().to_string();
     let ulid = surrealdb::sql::Id::ulid();
@@ -46,13 +39,19 @@ pub async fn send_message(
         cipher: message.get_cipher(),
         message_id: id.clone(),
         to: receiver_public_key.clone(),
-        uid: message.get_uid().clone(),
         time: get_current_time_in_seconds(),
         status: crate::db::surreal::schema::UserMessageStatus::Sent,
+        message_type: String::from("private_message"),
+        name: String::from("Athul"), //TODO: TO be Fixed,
     };
 
-    let _insert_message: Result<Option<Message>, surrealdb::Error> =
+    let insert_message: Result<Option<Message>, surrealdb::Error> =
         db_client.create(("messages", ulid)).content(&message).await;
+
+    if let Err(e) = insert_message {
+        eprintln!("ERROR:Failed to Insert Message = {:?}", e);
+        return Err(CustomError::DbError);
+    }
 
     //Inser to user_chats table
     let _insert_into_user_chats = db_client
@@ -66,26 +65,14 @@ pub async fn send_message(
         return Err(CustomError::DbError);
     }
 
-    if let Err(e) = _insert_message {
-        eprintln!("ERROR:Failed to Insert Message = {:?}", e);
-        return Err(CustomError::DbError);
-    }
-
     //Check if the receiver is online
     let user = state.get(&receiver_public_key);
     if let Some(user_ws) = user {
-        let payload = RecipientMessage::build(
-            id,
-            String::from("private_message"),
-            message.cipher,
-            message.from,
-            message.to,
-            message.message_id,
-            name,
-            message.time,
-        );
+        let payload = insert_message.unwrap().unwrap();
         let _ = user_ws.send(serde_json::to_string(&payload).unwrap());
     }
 
-    Ok(HttpResponse::text(String::from("Done")))
+    Ok(HttpResponse::text(String::from(
+        "Successfully Sent the Message",
+    )))
 }

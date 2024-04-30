@@ -17,10 +17,10 @@ pub struct TypingInfo {
 #[derive(Serialize, Deserialize, Clone, Default, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ClientPrivateMessage {
-    uid: String,              //Id of the message
-    pub message_type: String, //Type of the message send by the Client
+    message_id: String,       //Id of the message
     cipher: String,           //The encrypted message
-    public_key: String,       //Public key of the recipeient
+    to: String,               //Public key of the recipient
+    pub message_type: String, //Type of the message send by the Client
 }
 
 //Recipent Message Model
@@ -110,12 +110,12 @@ pub struct GetMessage {
 }
 
 impl ClientPrivateMessage {
-    pub fn get_public_key(&self) -> String {
-        self.public_key.clone()
+    pub fn get_to_public_key(&self) -> String {
+        self.to.clone()
     }
 
-    pub fn get_uid(&self) -> String {
-        self.uid.clone()
+    pub fn get_mesage_id(&self) -> String {
+        self.message_id.clone()
     }
 
     pub fn get_cipher(&self) -> String {
