@@ -1,5 +1,11 @@
-use crate::api::{types::RecipientMessage, utils::get_current_time_in_seconds};
+use crate::{
+    api::{types::RecipientMessage, utils::get_current_time_in_seconds},
+    types::user::User,
+};
 use axum::{extract::State, http::HeaderMap, response::IntoResponse, Json};
+use entity::users::Entity as Users;
+use sea_orm::{ColumnTrait, DatabaseConnection};
+use sea_orm::{EntityTrait, QueryFilter};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -25,14 +31,40 @@ pub async fn send_message(
 
     let (sender_public_key, name) = jwt_verification.unwrap();
 
-    let states = app_state.read().await;
-    let state = states.clone().get_state().clone();
-    let db_state = states.clone().get_db_client().clone();
-    let state = state.read().await;
-    let db_client = db_state.write().await;
+    let state = app_state.read().await;
+    let surreal_client = state.get_db_client();
+    let postgres_client = state.get_postgres_client();
+
+
+    let socket_state= state.clone().get_state();
+    let socket_state  = socket_state.read().await;
+
+    let db_client = surreal_client.write().await;
+    let postgres_db_client = postgres_client.read().await;
+
     let receiver_public_key = message.get_to_public_key();
     //Store message in db
-    let id = Uuid::new_v4().to_string();
+
+    let receiver_name = Users::find()
+        .filter(entity::users::Column::PublicKey.eq(&receiver_public_key))
+        .one::<DatabaseConnection>(&postgres_db_client)
+        .await;
+
+    if receiver_name.is_err() {
+        return Err(CustomError::DbError);
+    }
+
+    let receiver_name = receiver_name.unwrap();
+
+    if receiver_name.is_none() {
+        return Err(CustomError::UserNotRegistered {
+            message: String::from("User Not Registered"),
+            status: false,
+        });
+    }
+
+    let receiver_name = receiver_name.unwrap();
+
     let ulid = surrealdb::sql::Id::ulid();
     let message = crate::types::message::Message {
         from: sender_public_key.clone(),
@@ -42,7 +74,8 @@ pub async fn send_message(
         time: get_current_time_in_seconds(),
         status: crate::db::surreal::schema::UserMessageStatus::Sent,
         message_type: String::from("private_message"),
-        name: String::from("Athul"), //TODO: TO be Fixed,
+        from_name: name, //TODO: TO be Fixed,
+        to_name: receiver_name.user_name,
     };
 
     let insert_message: Result<Option<Message>, surrealdb::Error> =
@@ -66,7 +99,7 @@ pub async fn send_message(
     }
 
     //Check if the receiver is online
-    let user = state.get(&receiver_public_key);
+    let user = socket_state.get(&receiver_public_key);
     let payload = insert_message.unwrap().unwrap();
     if let Some(user_ws) = user {
         let _ = user_ws.send(serde_json::to_string(&payload).unwrap());

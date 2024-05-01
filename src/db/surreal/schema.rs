@@ -18,7 +18,8 @@ pub struct Message {
     pub message_id: String,        //Message Id Given by the client TODO: TO be Fixed
     pub from: String,              // Public Key/Address of the Sender
     pub to: String,                // Public Key/Address of the Receiver
-    pub name: String,              // Name of the Receiver
+    pub from_name:String,
+    pub to_name:String,
     pub cipher: String,            //Encrypted Message
     pub message_type: String,      // Type of the Messgae
     pub time: u64,                 //Time at which the Message has been sent
@@ -39,4 +40,10 @@ pub struct SocialMediaMessage {
     pub message_id: String,
     pub uid: String,
     pub time: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserAffinity{
+
 }

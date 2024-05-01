@@ -174,7 +174,8 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     time: current_time,
                                     status: crate::db::surreal::schema::UserMessageStatus::Sent,
                                     message_type: String::from("private_message"),
-                                    name: String::from("Name"), //TODO: TO be Chnaged,
+                                    to_name: String::from("Name"), //TODO: TO be Chnaged,
+                                    from_name: String::from("Name"), //TODO: TO be Chnaged,
                                 };
 
                                 let id = Uuid::new_v4().to_string();
