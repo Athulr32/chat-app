@@ -37,7 +37,7 @@ pub async fn send_message(
     let message = crate::types::message::Message {
         from: sender_public_key.clone(),
         cipher: message.get_cipher(),
-        message_id: id.clone(),
+        message_id: message.get_mesage_id(),
         to: receiver_public_key.clone(),
         time: get_current_time_in_seconds(),
         status: crate::db::surreal::schema::UserMessageStatus::Sent,
@@ -67,12 +67,10 @@ pub async fn send_message(
 
     //Check if the receiver is online
     let user = state.get(&receiver_public_key);
+    let payload = insert_message.unwrap().unwrap();
     if let Some(user_ws) = user {
-        let payload = insert_message.unwrap().unwrap();
         let _ = user_ws.send(serde_json::to_string(&payload).unwrap());
     }
 
-    Ok(HttpResponse::text(String::from(
-        "Successfully Sent the Message",
-    )))
+    Ok(HttpResponse::json(&payload))
 }
