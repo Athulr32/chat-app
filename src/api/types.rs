@@ -19,6 +19,7 @@ pub struct TypingInfo {
 pub struct ClientPrivateMessage {
     message_id: String,       //Id of the message
     cipher: String,           //The encrypted message
+    cipher_self:String,
     to: String,               //Public key of the recipient
     pub message_type: String, //Type of the message send by the Client
 }
@@ -120,6 +121,9 @@ impl ClientPrivateMessage {
 
     pub fn get_cipher(&self) -> String {
         self.cipher.clone()
+    }
+    pub fn get_cipher_self(&self) -> String {
+        self.cipher_self.clone()
     }
 }
 

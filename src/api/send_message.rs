@@ -76,6 +76,7 @@ pub async fn send_message(
         message_type: String::from("private_message"),
         from_name: name, //TODO: TO be Fixed,
         to_name: receiver_name.user_name,
+        cipher_self:message.get_cipher_self()
     };
 
     let insert_message: Result<Option<Message>, surrealdb::Error> =

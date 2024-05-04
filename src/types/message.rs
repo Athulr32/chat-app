@@ -9,6 +9,7 @@ pub struct Message {
     pub from: String,              // Public Key/Address of the Sender
     pub to: String,                // Public Key/Address of the Receiver
     pub cipher: String,            //Encrypted Message
+    pub cipher_self: String,            //Encrypted Message
     pub message_type: String,      // Type of the Messgae
     pub time: u64,                 //Time at which the Message has been sent
     pub status: UserMessageStatus, // What's the Status of the Message (Seem,Delivered,Sent)

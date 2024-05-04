@@ -21,6 +21,7 @@ pub struct Message {
     pub from_name:String,
     pub to_name:String,
     pub cipher: String,            //Encrypted Message
+    pub cipher_self:String,
     pub message_type: String,      // Type of the Messgae
     pub time: u64,                 //Time at which the Message has been sent
     pub status: UserMessageStatus, // What's the Status of the Message (Seem,Delivered,Sent)
