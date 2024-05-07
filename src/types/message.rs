@@ -14,7 +14,8 @@ pub struct Message {
     pub time: u64,                 //Time at which the Message has been sent
     pub status: UserMessageStatus, // What's the Status of the Message (Seem,Delivered,Sent)
     pub from_name:String,
-    pub to_name:String
+    pub to_name:String,
+    pub info_type:String
 }
 
 #[derive(Serialize, Deserialize, Debug)]

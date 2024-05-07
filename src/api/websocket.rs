@@ -177,6 +177,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<RwLock<AppState>>) {
                                     to_name: String::from("Name"), //TODO: TO be Chnaged,
                                     from_name: String::from("Name"), //TODO: TO be Chnaged,
                                     cipher_self: client_message.get_cipher_self(),
+                                    info_type: client_message.get_info_type(),
                                 };
 
                                 let id = Uuid::new_v4().to_string();

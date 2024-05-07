@@ -35,9 +35,8 @@ pub async fn send_message(
     let surreal_client = state.get_db_client();
     let postgres_client = state.get_postgres_client();
 
-
-    let socket_state= state.clone().get_state();
-    let socket_state  = socket_state.read().await;
+    let socket_state = state.clone().get_state();
+    let socket_state = socket_state.read().await;
 
     let db_client = surreal_client.write().await;
     let postgres_db_client = postgres_client.read().await;
@@ -76,7 +75,8 @@ pub async fn send_message(
         message_type: String::from("private_message"),
         from_name: name, //TODO: TO be Fixed,
         to_name: receiver_name.user_name,
-        cipher_self:message.get_cipher_self()
+        cipher_self: message.get_cipher_self(),
+        info_type: message.get_info_type(),
     };
 
     let insert_message: Result<Option<Message>, surrealdb::Error> =

@@ -37,7 +37,9 @@ pub async fn get_message_on_boostrap(
 
     let mut messages = messages.unwrap();
 
-    let message_required: Vec<Message> = messages.take(0).unwrap();
+    let mut message_required: Vec<Message> = messages.take(0).unwrap();
 
-    Ok(HttpResponse::json(&message_required))
+    Ok(HttpResponse::json(
+        &message_required
+    ))
 }

@@ -8,6 +8,7 @@ use crate::types::enums::MessageType;
 
 //Data structure to Info the client about typing
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct TypingInfo {
     pub message_type: MessageType,
     pub from: String,
@@ -22,6 +23,7 @@ pub struct ClientPrivateMessage {
     cipher_self:String,
     to: String,               //Public key of the recipient
     pub message_type: String, //Type of the message send by the Client
+    pub info_type:String
 }
 
 //Recipent Message Model
@@ -35,6 +37,7 @@ pub struct RecipientMessage {
     message_id: String, //Message id
     name: String,       //Name of the sender (From blockchain naming)
     time: u64,          // Time at which the client sent the message
+    info_type:String
 }
 
 //Status of each Message sent by the client
@@ -53,6 +56,7 @@ pub struct ClientAuthWsMessage {
     message_type: String, //Type of the Socket message
     status: bool,         //Whether authenticated or not
     message: String,      //Some messages
+
 }
 
 //WebSocket Authentication Type
@@ -125,6 +129,9 @@ impl ClientPrivateMessage {
     pub fn get_cipher_self(&self) -> String {
         self.cipher_self.clone()
     }
+    pub fn get_info_type(&self) -> String {
+        self.info_type.clone()
+    }
 }
 
 impl RecipientMessage {
@@ -137,6 +144,7 @@ impl RecipientMessage {
         message_id: String,
         name: String,
         time: u64,
+        info_type:String
     ) -> Self {
         RecipientMessage {
             uid,
@@ -147,6 +155,7 @@ impl RecipientMessage {
             message_id,
             name,
             time,
+            info_type
         }
     }
 

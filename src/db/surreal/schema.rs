@@ -24,7 +24,8 @@ pub struct Message {
     pub cipher_self:String,
     pub message_type: String,      // Type of the Messgae
     pub time: u64,                 //Time at which the Message has been sent
-    pub status: UserMessageStatus, // What's the Status of the Message (Seem,Delivered,Sent)
+    pub status: UserMessageStatus, // What's the Status of the Message (Seem,Delivered,Sent),
+    pub info_type:String
 }
 
 #[derive(Serialize, Deserialize)]
